@@ -33,17 +33,17 @@ type CSRF interface {
 }
 
 type csrf struct {
-	// Header name value for setting and getting csrf token.
+	// Header name value for setting and getting CSRF token.
 	header string
-	// Form name value for setting and getting csrf token.
+	// Form name value for setting and getting CSRF token.
 	form string
-	// Cookie name value for setting and getting csrf token.
+	// Cookie name value for setting and getting CSRF token.
 	cookie string
 	// Cookie domain
 	cookieDomain string
 	// Cookie path
 	cookiePath string
-	// Cookie HttpOnly flag value used for the csrf token.
+	// Cookie HttpOnly flag value used for the CSRF token.
 	cookieHttpOnly bool
 	// Token generated to pass via header, cookie, or hidden form value.
 	token string
