@@ -38,15 +38,7 @@ type csrf struct {
 	header string
 	// Form name value for setting and getting CSRF token.
 	form string
-	// Cookie name value for setting and getting CSRF token.
-	cookie string
-	// Cookie domain for setting the cookie.
-	cookieDomain string
-	// Cookie path for setting the cookie.
-	cookiePath string
-	// Cookie HttpOnly flag value used for the CSRF token.
-	cookieHttpOnly bool
-	// Token generated to pass via header, cookie, or hidden form value.
+	// Token generated to pass via header or hidden form value.
 	token string
 	// This value must be unique per user.
 	id string
@@ -71,13 +63,6 @@ func (c *csrf) Error(w http.ResponseWriter) {
 func (c *csrf) Validate(ctx flamego.Context) {
 	if token := ctx.Request().Header.Get(c.header); len(token) > 0 {
 		if !c.ValidToken(token) {
-			cookie := http.Cookie{
-				Name:   c.cookie,
-				Value:  "",
-				Path:   c.cookiePath,
-				MaxAge: -1,
-			}
-			ctx.SetCookie(cookie)
 			c.Error(ctx.ResponseWriter())
 		}
 		return
@@ -85,13 +70,6 @@ func (c *csrf) Validate(ctx flamego.Context) {
 
 	if token := ctx.Request().FormValue(c.form); len(token) > 0 {
 		if !c.ValidToken(token) {
-			cookie := http.Cookie{
-				Name:   c.cookie,
-				Value:  "",
-				Path:   c.cookiePath,
-				MaxAge: -1,
-			}
-			ctx.SetCookie(cookie)
 			c.Error(ctx.ResponseWriter())
 		}
 		return
@@ -108,22 +86,10 @@ type Options struct {
 	Header string
 	// Form value used to set and get token.
 	Form string
-	// Cookie value used to set and get token.
-	Cookie string
-	// Cookie domain used to set cookie.
-	CookieDomain string
-	// Cookie path used to set cookie.
-	CookiePath string
-	// Enable cookie HttpOnly attribute.
-	CookieHttpOnly bool
 	// Key used for getting the unique ID per user.
 	SessionKey string
 	// If true, send token via X-CSRFToken header.
 	SetHeader bool
-	// If true, send token via _csrf cookie.
-	SetCookie bool
-	// Set the Secure flag to true on the cookie.
-	Secure bool
 	// Disallow Origin appear in request header.
 	Origin bool
 	// The function called when Validate fails.
@@ -165,12 +131,6 @@ func prepareOptions(options []Options) Options {
 	if len(opt.Form) == 0 {
 		opt.Form = "_csrf"
 	}
-	if len(opt.Cookie) == 0 {
-		opt.Cookie = "_csrf"
-	}
-	if len(opt.CookiePath) == 0 {
-		opt.CookiePath = "/"
-	}
 	if len(opt.SessionKey) == 0 {
 		opt.SessionKey = "uid"
 	}
@@ -189,14 +149,10 @@ func Generate(options ...Options) flamego.Handler {
 	opt := prepareOptions(options)
 	return func(ctx flamego.Context, sess session.Session) {
 		x := &csrf{
-			secret:         opt.Secret,
-			header:         opt.Header,
-			form:           opt.Form,
-			cookie:         opt.Cookie,
-			cookieDomain:   opt.CookieDomain,
-			cookiePath:     opt.CookiePath,
-			cookieHttpOnly: opt.CookieHttpOnly,
-			errorFunc:      opt.ErrorFunc,
+			secret:    opt.Secret,
+			header:    opt.Header,
+			form:      opt.Form,
+			errorFunc: opt.ErrorFunc,
 		}
 		ctx.MapTo(x, (*CSRF)(nil))
 
@@ -211,20 +167,6 @@ func Generate(options ...Options) flamego.Handler {
 		}
 
 		x.token = GenerateToken(x.secret, x.id, "POST")
-		if opt.SetCookie {
-			cookie := http.Cookie{
-				Name:     opt.Cookie,
-				Value:    x.token,
-				Path:     opt.CookiePath,
-				Domain:   opt.CookieDomain,
-				HttpOnly: opt.CookieHttpOnly,
-				Secure:   opt.Secure,
-				Expires:  time.Now().AddDate(0, 0, 1),
-				MaxAge:   0,
-			}
-			ctx.SetCookie(cookie)
-		}
-
 		if opt.SetHeader {
 			ctx.ResponseWriter().Header().Add(opt.Header, x.token)
 		}
