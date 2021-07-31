@@ -181,7 +181,7 @@ func Csrfer(opts ...Options) flamego.Handler {
 
 		x.token = GenerateToken(x.secret, x.id, http.MethodPost)
 		if opt.SetHeader {
-			c.ResponseWriter().Header().Add(opt.Header, x.token)
+			c.ResponseWriter().Header().Set(opt.Header, x.token)
 		}
 	}
 }
