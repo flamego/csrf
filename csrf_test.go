@@ -32,7 +32,7 @@ func TestGenerateToken(t *testing.T) {
 	f.Get("/private", func() {})
 
 	resp := httptest.NewRecorder()
-	req, err := http.NewRequest("GET", "/login", nil)
+	req, err := http.NewRequest(http.MethodGet, "/login", nil)
 	assert.NoError(t, err)
 
 	f.ServeHTTP(resp, req)
@@ -40,7 +40,7 @@ func TestGenerateToken(t *testing.T) {
 	cookie := resp.Header().Get("Set-Cookie")
 
 	resp = httptest.NewRecorder()
-	req, err = http.NewRequest("GET", "/private", nil)
+	req, err = http.NewRequest(http.MethodGet, "/private", nil)
 	assert.NoError(t, err)
 
 	req.Header.Set("Cookie", cookie)
@@ -63,14 +63,14 @@ func TestGenerateHeader(t *testing.T) {
 		f.Get("/private", func() {})
 
 		resp := httptest.NewRecorder()
-		req, err := http.NewRequest("GET", "/login", nil)
+		req, err := http.NewRequest(http.MethodGet, "/login", nil)
 		assert.NoError(t, err)
 		f.ServeHTTP(resp, req)
 
 		assert.Contains(t, resp.Header().Get("Set-Cookie"), "")
 
 		resp = httptest.NewRecorder()
-		req, err = http.NewRequest("GET", "/private", nil)
+		req, err = http.NewRequest(http.MethodGet, "/private", nil)
 		assert.NoError(t, err)
 
 		f.ServeHTTP(resp, req)
@@ -94,14 +94,14 @@ func TestGenerateHeader(t *testing.T) {
 		f.Get("/private", func() {})
 
 		resp := httptest.NewRecorder()
-		req, err := http.NewRequest("GET", "/login", nil)
+		req, err := http.NewRequest(http.MethodGet, "/login", nil)
 		assert.NoError(t, err)
 		f.ServeHTTP(resp, req)
 
 		cookie := resp.Header().Get("Set-Cookie")
 
 		resp = httptest.NewRecorder()
-		req, err = http.NewRequest("GET", "/private", nil)
+		req, err = http.NewRequest(http.MethodGet, "/private", nil)
 		assert.NoError(t, err)
 
 		req.Header.Set("Cookie", cookie)
@@ -127,14 +127,14 @@ func TestGenerateHeader(t *testing.T) {
 		f.Get("/private", func() {})
 
 		resp := httptest.NewRecorder()
-		req, err := http.NewRequest("GET", "/login", nil)
+		req, err := http.NewRequest(http.MethodGet, "/login", nil)
 		assert.NoError(t, err)
 		f.ServeHTTP(resp, req)
 
 		cookie := resp.Header().Get("Set-Cookie")
 
 		resp = httptest.NewRecorder()
-		req, err = http.NewRequest("GET", "/private", nil)
+		req, err = http.NewRequest(http.MethodGet, "/private", nil)
 		assert.NoError(t, err)
 
 		req.Header.Set("Cookie", cookie)
@@ -158,14 +158,14 @@ func TestValidate(t *testing.T) {
 		f.Get("/private", func() {})
 
 		resp := httptest.NewRecorder()
-		req, err := http.NewRequest("GET", "/login", nil)
+		req, err := http.NewRequest(http.MethodGet, "/login", nil)
 		assert.NoError(t, err)
 		f.ServeHTTP(resp, req)
 
 		cookie := resp.Header().Get("Set-Cookie")
 
 		resp = httptest.NewRecorder()
-		req, err = http.NewRequest("GET", "/private", nil)
+		req, err = http.NewRequest(http.MethodGet, "/private", nil)
 		assert.NoError(t, err)
 
 		req.Header.Set("Cookie", cookie)
@@ -178,7 +178,7 @@ func TestValidate(t *testing.T) {
 		data.Set("_csrf", token)
 
 		resp = httptest.NewRecorder()
-		req, err = http.NewRequest("POST", "/private", bytes.NewBufferString(data.Encode()))
+		req, err = http.NewRequest(http.MethodPost, "/private", bytes.NewBufferString(data.Encode()))
 		assert.NoError(t, err)
 
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -190,7 +190,7 @@ func TestValidate(t *testing.T) {
 
 		// Post using X-CSRFToken HTTP header.
 		resp = httptest.NewRecorder()
-		req, err = http.NewRequest("POST", "/private", nil)
+		req, err = http.NewRequest(http.MethodPost, "/private", nil)
 		assert.NoError(t, err)
 
 		req.Header.Set("X-CSRFToken", token)
@@ -216,14 +216,14 @@ func TestValidate(t *testing.T) {
 		f.Get("/private", func() {})
 
 		resp := httptest.NewRecorder()
-		req, err := http.NewRequest("GET", "/login", nil)
+		req, err := http.NewRequest(http.MethodGet, "/login", nil)
 		assert.NoError(t, err)
 		f.ServeHTTP(resp, req)
 
 		cookie := resp.Header().Get("Set-Cookie")
 
 		resp = httptest.NewRecorder()
-		req, err = http.NewRequest("GET", "/private", nil)
+		req, err = http.NewRequest(http.MethodGet, "/private", nil)
 		assert.NoError(t, err)
 
 		req.Header.Set("Cookie", cookie)
@@ -236,7 +236,7 @@ func TestValidate(t *testing.T) {
 		data.Set("_csrf", token)
 
 		resp = httptest.NewRecorder()
-		req, err = http.NewRequest("POST", "/private", bytes.NewBufferString(data.Encode()))
+		req, err = http.NewRequest(http.MethodPost, "/private", bytes.NewBufferString(data.Encode()))
 		assert.NoError(t, err)
 
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -248,7 +248,7 @@ func TestValidate(t *testing.T) {
 
 		// Post using X-Custom HTTP header.
 		resp = httptest.NewRecorder()
-		req, err = http.NewRequest("POST", "/private", nil)
+		req, err = http.NewRequest(http.MethodPost, "/private", nil)
 		assert.NoError(t, err)
 
 		req.Header.Set("X-Custom", token)
@@ -279,14 +279,14 @@ func TestValidate(t *testing.T) {
 		f.Post("/private", Validate, func() {})
 
 		resp := httptest.NewRecorder()
-		req, err := http.NewRequest("GET", "/login", nil)
+		req, err := http.NewRequest(http.MethodGet, "/login", nil)
 		assert.NoError(t, err)
 		f.ServeHTTP(resp, req)
 
 		cookie := resp.Header().Get("Set-Cookie")
 
 		resp = httptest.NewRecorder()
-		req, err = http.NewRequest("GET", "/private", nil)
+		req, err = http.NewRequest(http.MethodGet, "/private", nil)
 		assert.NoError(t, err)
 
 		req.Header.Set("Cookie", cookie)
@@ -297,7 +297,7 @@ func TestValidate(t *testing.T) {
 		data.Set("_csrf", "invalid")
 
 		resp = httptest.NewRecorder()
-		req, err = http.NewRequest("POST", "/private", bytes.NewBufferString(data.Encode()))
+		req, err = http.NewRequest(http.MethodPost, "/private", bytes.NewBufferString(data.Encode()))
 		assert.NoError(t, err)
 
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -310,7 +310,7 @@ func TestValidate(t *testing.T) {
 
 		// Post using X-CSRFToken HTTP header.
 		resp = httptest.NewRecorder()
-		req, err = http.NewRequest("POST", "/private", nil)
+		req, err = http.NewRequest(http.MethodPost, "/private", nil)
 		assert.NoError(t, err)
 
 		req.Header.Set("X-CSRFToken", "invalid")
@@ -336,14 +336,14 @@ func TestInvalid(t *testing.T) {
 		f.Get("/private", func() {})
 
 		resp := httptest.NewRecorder()
-		req, err := http.NewRequest("GET", "/login", nil)
+		req, err := http.NewRequest(http.MethodGet, "/login", nil)
 		assert.NoError(t, err)
 		f.ServeHTTP(resp, req)
 
 		cookie := resp.Header().Get("Set-Cookie")
 
 		resp = httptest.NewRecorder()
-		req, err = http.NewRequest("GET", "/private", nil)
+		req, err = http.NewRequest(http.MethodGet, "/private", nil)
 		assert.NoError(t, err)
 
 		req.Header.Set("Cookie", cookie)
@@ -361,7 +361,7 @@ func TestInvalid(t *testing.T) {
 		f.Get("/private", func() {})
 
 		resp := httptest.NewRecorder()
-		req, err := http.NewRequest("GET", "/login", nil)
+		req, err := http.NewRequest(http.MethodGet, "/login", nil)
 		assert.NoError(t, err)
 		f.ServeHTTP(resp, req)
 
@@ -376,12 +376,12 @@ func TestInvalid(t *testing.T) {
 		f.Get("/login", Validate, func() {})
 
 		resp := httptest.NewRecorder()
-		req, err := http.NewRequest("GET", "/login", nil)
+		req, err := http.NewRequest(http.MethodGet, "/login", nil)
 		assert.NoError(t, err)
 		f.ServeHTTP(resp, req)
 
 		resp = httptest.NewRecorder()
-		req, err = http.NewRequest("GET", "/login", nil)
+		req, err = http.NewRequest(http.MethodGet, "/login", nil)
 		assert.NoError(t, err)
 
 		req.Header.Set("X-CSRFToken", "invalid")
