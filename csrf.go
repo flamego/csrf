@@ -10,9 +10,11 @@ import (
 	"fmt"
 	r "math/rand"
 	"net/http"
+	"reflect"
 	"time"
 
 	"github.com/flamego/flamego"
+	"github.com/flamego/flamego/inject"
 	"github.com/flamego/session"
 )
 
@@ -121,6 +123,16 @@ func randomBytes(n int) []byte {
 	return bytes
 }
 
+var _ inject.FastInvoker = (*csrfInvoker)(nil)
+
+// csrfInvoker is an inject.FastInvoker implementation of `func(flamego.Context, session.Session)`.
+type csrfInvoker func(flamego.Context, session.Session)
+
+func (invoke csrfInvoker) Invoke(args []interface{}) ([]reflect.Value, error) {
+	invoke(args[0].(flamego.Context), args[1].(session.Session))
+	return nil, nil
+}
+
 // Csrfer returns a middleware handler that injects csrf.CSRF into the request
 // context, and only generates a new CSRF token on every GET request.
 func Csrfer(opts ...Options) flamego.Handler {
@@ -155,7 +167,7 @@ func Csrfer(opts ...Options) flamego.Handler {
 	}
 
 	opt = parseOptions(opt)
-	return func(c flamego.Context, s session.Session) {
+	return csrfInvoker(func(c flamego.Context, s session.Session) {
 		x := &csrf{
 			secret:    opt.Secret,
 			header:    opt.Header,
@@ -183,7 +195,7 @@ func Csrfer(opts ...Options) flamego.Handler {
 		if opt.SetHeader {
 			c.ResponseWriter().Header().Set(opt.Header, x.token)
 		}
-	}
+	})
 }
 
 // Validate should be used as a per route middleware to validate CSRF tokens.
