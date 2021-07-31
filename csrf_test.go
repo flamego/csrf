@@ -28,7 +28,7 @@ func TestGenerateToken(t *testing.T) {
 		sess.Set("uid", "123456")
 	})
 
-	// Generate token.
+	// Generate token via GET request
 	f.Get("/private", func() {})
 
 	resp := httptest.NewRecorder()
@@ -154,7 +154,7 @@ func TestValidate(t *testing.T) {
 			sess.Set("uid", "123456")
 		})
 
-		// Generate token.
+		// Generate token via GET request
 		f.Get("/private", func() {})
 
 		resp := httptest.NewRecorder()
@@ -212,7 +212,7 @@ func TestValidate(t *testing.T) {
 			sess.Set("uid", "123456")
 		})
 
-		// Generate token.
+		// Generate token via GET request
 		f.Get("/private", func() {})
 
 		resp := httptest.NewRecorder()
@@ -271,7 +271,7 @@ func TestValidate(t *testing.T) {
 			sess.Set("uid", "123456")
 		})
 
-		// Generate token.
+		// Generate token via GET request
 		f.Get("/private", func(x CSRF) string {
 			return x.Token()
 		})
@@ -332,7 +332,7 @@ func TestInvalid(t *testing.T) {
 			sess.Set("uid", true)
 		})
 
-		// Generate token.
+		// Generate token via GET request
 		f.Get("/private", func() {})
 
 		resp := httptest.NewRecorder()
@@ -357,7 +357,7 @@ func TestInvalid(t *testing.T) {
 
 		f.Get("/login", Validate, func() {})
 
-		// Generate token.
+		// Generate token via GET request
 		f.Get("/private", func() {})
 
 		resp := httptest.NewRecorder()
