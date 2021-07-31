@@ -18,20 +18,11 @@ import (
 
 // CSRF represents a CSRF service and is used to get the current token and validate a suspect token.
 type CSRF interface {
-	// Return HTTP header to search for token.
-	HeaderName() string
-	// Return form value to search for token.
-	FormName() string
-	// Return cookie name to search for token.
-	CookieName() string
-	// Return cookie path
-	CookiePath() string
-	// Return the flag value used for the csrf token.
-	CookieHttpOnly() bool
-	// Return the token.
 	Token() string
 	// Validate by token.
 	ValidToken(t string) bool
+	// Validate by context.
+	Validate(ctx flamego.Context)
 	// Error replies to the request with a custom function when ValidToken fails.
 	Error(w http.ResponseWriter)
 }
@@ -59,31 +50,6 @@ type csrf struct {
 	errorFunc func(w http.ResponseWriter)
 }
 
-// HeaderName returns the name of the HTTP header for csrf token.
-func (c *csrf) HeaderName() string {
-	return c.header
-}
-
-// FormName returns the name of the form value for csrf token.
-func (c *csrf) FormName() string {
-	return c.form
-}
-
-// CookieName returns the name of the cookie for csrf token.
-func (c *csrf) CookieName() string {
-	return c.cookie
-}
-
-// CookiePath returns the path of the cookie for csrf token.
-func (c *csrf) CookiePath() string {
-	return c.cookiePath
-}
-
-// CookieHttpOnly returns the flag value used for the csrf token.
-func (c *csrf) CookieHttpOnly() bool {
-	return c.cookieHttpOnly
-}
-
 // Token returns the current token. This is typically used
 // to populate a hidden form in an HTML template.
 func (c *csrf) Token() string {
@@ -98,6 +64,38 @@ func (c *csrf) ValidToken(t string) bool {
 // Error replies to the request when ValidToken fails.
 func (c *csrf) Error(w http.ResponseWriter) {
 	c.errorFunc(w)
+}
+
+func (c *csrf) Validate(ctx flamego.Context) {
+	if token := ctx.Request().Header.Get(c.header); len(token) > 0 {
+		if !c.ValidToken(token) {
+			cookie := http.Cookie{
+				Name:   c.cookie,
+				Value:  "",
+				Path:   c.cookiePath,
+				MaxAge: -1,
+			}
+			ctx.SetCookie(cookie)
+			c.Error(ctx.ResponseWriter())
+		}
+		return
+	}
+
+	if token := ctx.Request().FormValue(c.form); len(token) > 0 {
+		if !c.ValidToken(token) {
+			cookie := http.Cookie{
+				Name:   c.cookie,
+				Value:  "",
+				Path:   c.cookiePath,
+				MaxAge: -1,
+			}
+			ctx.SetCookie(cookie)
+			c.Error(ctx.ResponseWriter())
+		}
+		return
+	}
+
+	http.Error(ctx.ResponseWriter(), "Bad Request: no CSRF token present", http.StatusBadRequest)
 }
 
 // Options maintains options to manage behavior of Generate.
@@ -263,33 +261,5 @@ func Csrfer(options ...Options) flamego.Handler {
 // using ValidToken. If this validation fails, custom Error is sent in the reply.
 // If neither a header or form value is found, http.StatusBadRequest is sent.
 func Validate(ctx flamego.Context, x CSRF) {
-	if token := ctx.Request().Header.Get(x.HeaderName()); len(token) > 0 {
-		if !x.ValidToken(token) {
-			cookie := http.Cookie{
-				Name:   x.CookieName(),
-				Value:  "",
-				Path:   x.CookiePath(),
-				MaxAge: -1,
-			}
-			ctx.SetCookie(cookie)
-			x.Error(ctx.ResponseWriter())
-		}
-		return
-	}
-
-	if token := ctx.Request().FormValue(x.FormName()); len(token) > 0 {
-		if !x.ValidToken(token) {
-			cookie := http.Cookie{
-				Name:   x.CookieName(),
-				Value:  "",
-				Path:   x.CookiePath(),
-				MaxAge: -1,
-			}
-			ctx.SetCookie(cookie)
-			x.Error(ctx.ResponseWriter())
-		}
-		return
-	}
-
-	http.Error(ctx.ResponseWriter(), "Bad Request: no CSRF token present", http.StatusBadRequest)
+	x.Validate(ctx)
 }
