@@ -118,8 +118,6 @@ type Options struct {
 	CookieHttpOnly bool
 	// Key used for getting the unique ID per user.
 	SessionKey string
-	// oldSeesionKey saves old value corresponding to SessionKey.
-	oldSeesionKey string
 	// If true, send token via X-CSRFToken header.
 	SetHeader bool
 	// If true, send token via _csrf cookie.
@@ -176,7 +174,6 @@ func prepareOptions(options []Options) Options {
 	if len(opt.SessionKey) == 0 {
 		opt.SessionKey = "uid"
 	}
-	opt.oldSeesionKey = "_old_" + opt.SessionKey
 	if opt.ErrorFunc == nil {
 		opt.ErrorFunc = func(w http.ResponseWriter) {
 			http.Error(w, "Invalid csrf token.", http.StatusBadRequest)
@@ -213,37 +210,19 @@ func Generate(options ...Options) flamego.Handler {
 			x.id = fmt.Sprintf("%s", uid)
 		}
 
-		needsNew := false
-		oldUid := sess.Get(opt.oldSeesionKey)
-		if oldUid == nil || oldUid.(string) != x.id {
-			needsNew = true
-			sess.Set(opt.oldSeesionKey, x.id)
-		} else {
-			// If cookie present, map existing token, else generate a new one.
-			if cookie := ctx.Cookie(opt.Cookie); len(cookie) > 0 {
-				// FIXME: test coverage
-				x.token = cookie
-			} else {
-				needsNew = true
+		x.token = GenerateToken(x.secret, x.id, "POST")
+		if opt.SetCookie {
+			cookie := http.Cookie{
+				Name:     opt.Cookie,
+				Value:    x.token,
+				Path:     opt.CookiePath,
+				Domain:   opt.CookieDomain,
+				HttpOnly: opt.CookieHttpOnly,
+				Secure:   opt.Secure,
+				Expires:  time.Now().AddDate(0, 0, 1),
+				MaxAge:   0,
 			}
-		}
-
-		if needsNew {
-			// FIXME: actionId.
-			x.token = GenerateToken(x.secret, x.id, "POST")
-			if opt.SetCookie {
-				cookie := http.Cookie{
-					Name:     opt.Cookie,
-					Value:    x.token,
-					Path:     opt.CookiePath,
-					Domain:   opt.CookieDomain,
-					HttpOnly: opt.CookieHttpOnly,
-					Secure:   opt.Secure,
-					Expires:  time.Now().AddDate(0, 0, 1),
-					MaxAge:   0,
-				}
-				ctx.SetCookie(cookie)
-			}
+			ctx.SetCookie(cookie)
 		}
 
 		if opt.SetHeader {
