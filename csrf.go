@@ -254,7 +254,7 @@ func Generate(options ...Options) flamego.Handler {
 					Expires:  time.Now().AddDate(0, 0, 1),
 					MaxAge:   0,
 				}
-				ctx.ResponseWriter().Header().Add("Set-Cookie", cookie.String())
+				ctx.SetCookie(cookie)
 			}
 		}
 
@@ -283,7 +283,7 @@ func Validate(ctx flamego.Context, x CSRF) {
 				Path:   x.GetCookiePath(),
 				MaxAge: -1,
 			}
-			ctx.ResponseWriter().Header().Add("Set-Cookie", cookie.String())
+			ctx.SetCookie(cookie)
 			x.Error(ctx.ResponseWriter())
 		}
 		return
@@ -297,7 +297,7 @@ func Validate(ctx flamego.Context, x CSRF) {
 				Path:   x.GetCookiePath(),
 				MaxAge: -1,
 			}
-			ctx.ResponseWriter().Header().Add("Set-Cookie", cookie.String())
+			ctx.SetCookie(cookie)
 			x.Error(ctx.ResponseWriter())
 		}
 		return
