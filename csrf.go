@@ -121,7 +121,6 @@ func randomBytes(n int) []byte {
 	return bytes
 }
 
-func prepareOptions(options []Options) Options {
 // Csrfer returns a middleware handler that injects csrf.CSRF into the request
 // context, and only generates a new CSRF token on every GET request.
 func Csrfer(opts ...Options) flamego.Handler {
