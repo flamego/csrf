@@ -18,17 +18,18 @@ import (
 
 // CSRF represents a CSRF service and is used to get the current token and validate a suspect token.
 type CSRF interface {
-	// Token returns the token.
+	// Token returns the current token. This is typically used
+	// to populate a hidden form in an HTML template.
 	Token() string
-	// ValidToken returns true if the token passed validation.
+	// ValidToken validates the passed token against the existing Secret and ID.
 	ValidToken(t string) bool
-	// Error replies to the request with a custom function when ValidToken fails.
+	// Error executes the error function with given http.ResponseWriter.
 	Error(w http.ResponseWriter)
-	// Validate validate CSRF by context.
-	// It attempts to get a token from a "X-CSRFToken"
-	// HTTP header and then a "_csrf" form value. If one of these is found, the token will be validated
-	// using ValidToken. If this validation fails, custom Error is sent in the reply.
-	// If neither a header or form value is found, http.StatusBadRequest is sent.
+	// Validate validates CSRF using given context.
+	// It first attempts to get the token from the HTTP header ("X-CSRFToken" by default)
+	// and then the form value ("_csrf" by default). If one of these is found, the token will be validated
+	// using ValidToken. If this validation fails, custom Error is sent as the response.
+	// If neither the header nor form value is found, http.StatusBadRequest is sent.
 	Validate(ctx flamego.Context)
 }
 
@@ -39,9 +40,9 @@ type csrf struct {
 	form string
 	// Cookie name value for setting and getting CSRF token.
 	cookie string
-	// Cookie domain
+	// Cookie domain for setting the cookie.
 	cookieDomain string
-	// Cookie path
+	// Cookie path for setting the cookie.
 	cookiePath string
 	// Cookie HttpOnly flag value used for the CSRF token.
 	cookieHttpOnly bool
@@ -55,18 +56,14 @@ type csrf struct {
 	errorFunc func(w http.ResponseWriter)
 }
 
-// Token returns the current token. This is typically used
-// to populate a hidden form in an HTML template.
 func (c *csrf) Token() string {
 	return c.token
 }
 
-// ValidToken validates the passed token against the existing Secret and ID.
 func (c *csrf) ValidToken(t string) bool {
 	return ValidToken(t, c.secret, c.id, "POST")
 }
 
-// Error replies to the request when ValidToken fails.
 func (c *csrf) Error(w http.ResponseWriter) {
 	c.errorFunc(w)
 }
@@ -113,9 +110,9 @@ type Options struct {
 	Form string
 	// Cookie value used to set and get token.
 	Cookie string
-	// Cookie domain.
+	// Cookie domain used to set cookie.
 	CookieDomain string
-	// Cookie path.
+	// Cookie path used to set cookie.
 	CookiePath string
 	// Enable cookie HttpOnly attribute.
 	CookieHttpOnly bool
