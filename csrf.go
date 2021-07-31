@@ -79,7 +79,7 @@ func (c *csrf) Validate(ctx flamego.Context) {
 	http.Error(ctx.ResponseWriter(), "Bad Request: no CSRF token present", http.StatusBadRequest)
 }
 
-// Options maintains options to manage behavior of Generate.
+// Options contains options for the csrf.Csrfer middleware.
 type Options struct {
 	// Secret is the secret value used to generate tokens. Default is an
 	// auto-generated 10-char random string.
