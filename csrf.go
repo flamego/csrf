@@ -18,13 +18,18 @@ import (
 
 // CSRF represents a CSRF service and is used to get the current token and validate a suspect token.
 type CSRF interface {
+	// Token returns the token.
 	Token() string
-	// Validate by token.
+	// ValidToken returns true if the token passed validation.
 	ValidToken(t string) bool
-	// Validate by context.
-	Validate(ctx flamego.Context)
 	// Error replies to the request with a custom function when ValidToken fails.
 	Error(w http.ResponseWriter)
+	// Validate validate CSRF by context.
+	// It attempts to get a token from a "X-CSRFToken"
+	// HTTP header and then a "_csrf" form value. If one of these is found, the token will be validated
+	// using ValidToken. If this validation fails, custom Error is sent in the reply.
+	// If neither a header or form value is found, http.StatusBadRequest is sent.
+	Validate(ctx flamego.Context)
 }
 
 type csrf struct {
@@ -256,10 +261,7 @@ func Csrfer(options ...Options) flamego.Handler {
 	return Generate(options...)
 }
 
-// Validate should be used as a per route middleware. It attempts to get a token from a "X-CSRFToken"
-// HTTP header and then a "_csrf" form value. If one of these is found, the token will be validated
-// using ValidToken. If this validation fails, custom Error is sent in the reply.
-// If neither a header or form value is found, http.StatusBadRequest is sent.
+// Validate should be used as a per route middleware.
 func Validate(ctx flamego.Context, x CSRF) {
 	x.Validate(ctx)
 }
