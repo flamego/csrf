@@ -12,12 +12,13 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/flamego/flamego"
 	"github.com/flamego/session"
-	"github.com/stretchr/testify/assert"
 )
 
-func Test_GenerateToken(t *testing.T) {
+func TestGenerateToken(t *testing.T) {
 	f := flamego.NewWithLogger(&bytes.Buffer{})
 	f.Use(session.Sessioner())
 	f.Use(Csrfer())
@@ -46,7 +47,7 @@ func Test_GenerateToken(t *testing.T) {
 	f.ServeHTTP(resp, req)
 }
 
-func Test_GenerateHeader(t *testing.T) {
+func TestGenerateHeader(t *testing.T) {
 	t.Run("Generate token to header", func(t *testing.T) {
 		f := flamego.NewWithLogger(&bytes.Buffer{})
 		f.Use(session.Sessioner())
@@ -82,7 +83,7 @@ func Test_GenerateHeader(t *testing.T) {
 		f.Use(session.Sessioner())
 		f.Use(Csrfer(Options{
 			SetHeader: true,
-			Origin:    true,
+			NoOrigin:  true,
 		}))
 
 		f.Get("/login", func(sess session.Session) {
@@ -143,7 +144,7 @@ func Test_GenerateHeader(t *testing.T) {
 	})
 }
 
-func Test_Validate(t *testing.T) {
+func TestValidate(t *testing.T) {
 	t.Run("Validate token", func(t *testing.T) {
 		f := flamego.NewWithLogger(&bytes.Buffer{})
 		f.Use(session.Sessioner())
@@ -321,7 +322,7 @@ func Test_Validate(t *testing.T) {
 	})
 }
 
-func Test_Invalid(t *testing.T) {
+func TestInvalid(t *testing.T) {
 	t.Run("Invalid session data type", func(t *testing.T) {
 		f := flamego.NewWithLogger(&bytes.Buffer{})
 		f.Use(session.Sessioner())

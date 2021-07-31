@@ -13,9 +13,9 @@ import (
 )
 
 const (
-	KEY       = "quay"
-	USER_ID   = "12345678"
-	ACTION_ID = "POST /form"
+	key      = "quay"
+	userID   = "12345678"
+	actionID = "POST /form"
 )
 
 var (
@@ -23,38 +23,40 @@ var (
 	oneMinuteFromNow = now.Add(1 * time.Minute)
 )
 
-func Test_ValidToken(t *testing.T) {
-	tok := generateTokenAtTime(KEY, USER_ID, ACTION_ID, now)
-	assert.True(t, validTokenAtTime(tok, KEY, USER_ID, ACTION_ID, oneMinuteFromNow))
-	assert.True(t, validTokenAtTime(tok, KEY, USER_ID, ACTION_ID, now.Add(TIMEOUT-1*time.Nanosecond)))
-	assert.True(t, validTokenAtTime(tok, KEY, USER_ID, ACTION_ID, now.Add(-1*time.Minute)))
+func TestValidToken(t *testing.T) {
+	tok := generateTokenAtTime(key, userID, actionID, now)
+	assert.True(t, validTokenAtTime(tok, key, userID, actionID, oneMinuteFromNow))
+	assert.True(t, validTokenAtTime(tok, key, userID, actionID, now.Add(timeout-1*time.Nanosecond)))
+	assert.True(t, validTokenAtTime(tok, key, userID, actionID, now.Add(-1*time.Minute)))
 }
 
-// Test_SeparatorReplacement tests that separators are being correctly substituted
-func Test_SeparatorReplacement(t *testing.T) {
+// TestSeparatorReplacement tests that separators are being correctly
+// substituted.
+func TestSeparatorReplacement(t *testing.T) {
 	assert.NotEqual(t, generateTokenAtTime("foo:bar", "baz", "wah", now), generateTokenAtTime("foo", "bar:baz", "wah", now))
 }
 
-func Test_InvalidToken(t *testing.T) {
+func TestInvalidToken(t *testing.T) {
 	invalidTokenTests := []struct {
 		name, key, userID, actionID string
 		t                           time.Time
 	}{
-		{"Bad key", "foobar", USER_ID, ACTION_ID, oneMinuteFromNow},
-		{"Bad userID", KEY, "foobar", ACTION_ID, oneMinuteFromNow},
-		{"Bad actionID", KEY, USER_ID, "foobar", oneMinuteFromNow},
-		{"Expired", KEY, USER_ID, ACTION_ID, now.Add(TIMEOUT)},
-		{"More than 1 minute from the future", KEY, USER_ID, ACTION_ID, now.Add(-1*time.Nanosecond - 1*time.Minute)},
+		{"Bad key", "foobar", userID, actionID, oneMinuteFromNow},
+		{"Bad userID", key, "foobar", actionID, oneMinuteFromNow},
+		{"Bad actionID", key, userID, "foobar", oneMinuteFromNow},
+		{"Expired", key, userID, actionID, now.Add(timeout)},
+		{"More than 1 minute from the future", key, userID, actionID, now.Add(-1*time.Nanosecond - 1*time.Minute)},
 	}
 
-	tok := generateTokenAtTime(KEY, USER_ID, ACTION_ID, now)
+	tok := generateTokenAtTime(key, userID, actionID, now)
 	for _, itt := range invalidTokenTests {
 		assert.False(t, validTokenAtTime(tok, itt.key, itt.userID, itt.actionID, itt.t))
 	}
 }
 
-// Test_ValidateBadData primarily tests that no unexpected panics are triggered during parsing
-func Test_ValidateBadData(t *testing.T) {
+// TestValidateBadData primarily tests that no unexpected panics are triggered
+// during parsing.
+func TestValidateBadData(t *testing.T) {
 	badDataTests := []struct {
 		name, tok string
 	}{
@@ -64,6 +66,6 @@ func Test_ValidateBadData(t *testing.T) {
 	}
 
 	for _, bdt := range badDataTests {
-		assert.False(t, validTokenAtTime(bdt.tok, KEY, USER_ID, ACTION_ID, oneMinuteFromNow))
+		assert.False(t, validTokenAtTime(bdt.tok, key, userID, actionID, oneMinuteFromNow))
 	}
 }

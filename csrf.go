@@ -16,20 +16,21 @@ import (
 	"github.com/flamego/session"
 )
 
-// CSRF represents a CSRF service and is used to get the current token and validate a suspect token.
+// CSRF represents a CSRF service and is used to get the current token and
+// validate a suspect token.
 type CSRF interface {
-	// Token returns the current token. This is typically used
-	// to populate a hidden form in an HTML template.
+	// Token returns the current token. This is typically used to populate a hidden
+	// form in an HTML template.
 	Token() string
 	// ValidToken validates the passed token against the existing Secret and ID.
 	ValidToken(t string) bool
 	// Error executes the error function with given http.ResponseWriter.
 	Error(w http.ResponseWriter)
-	// Validate validates CSRF using given context.
-	// It first attempts to get the token from the HTTP header ("X-CSRFToken" by default)
-	// and then the form value ("_csrf" by default). If one of these is found, the token will be validated
-	// using ValidToken. If this validation fails, custom Error is sent as the response.
-	// If neither the header nor form value is found, http.StatusBadRequest is sent.
+	// Validate validates CSRF using given context. It attempts to get the token
+	// from the HTTP header and then the form value. If any of these is found, the
+	// token will be validated using ValidToken. If the validation fails, custom
+	// Error is sent as the response. If neither the header nor form value is found,
+	// http.StatusBadRequest is sent.
 	Validate(ctx flamego.Context)
 }
 
@@ -40,11 +41,11 @@ type csrf struct {
 	form string
 	// Token generated to pass via header or hidden form value.
 	token string
-	// This value must be unique per user.
+	// The value to uniquely identify a user.
 	id string
-	// Secret used along with the unique id above to generate the Token.
+	// Secret used along with the unique id above to generate the token.
 	secret string
-	// ErrorFunc is the custom function that replies to the request when ValidToken fails.
+	// The custom function that replies to the request when ValidToken fails.
 	errorFunc func(w http.ResponseWriter)
 }
 
@@ -53,7 +54,7 @@ func (c *csrf) Token() string {
 }
 
 func (c *csrf) ValidToken(t string) bool {
-	return ValidToken(t, c.secret, c.id, "POST")
+	return ValidToken(t, c.secret, c.id, http.MethodPost)
 }
 
 func (c *csrf) Error(w http.ResponseWriter) {
@@ -80,19 +81,24 @@ func (c *csrf) Validate(ctx flamego.Context) {
 
 // Options maintains options to manage behavior of Generate.
 type Options struct {
-	// The global secret value used to generate Tokens.
+	// Secret is the secret value used to generate tokens. Default is an
+	// auto-generated 10-char random string.
 	Secret string
-	// HTTP header used to set and get token.
+	// Header specifies which HTTP header to be used to set and get token. Default
+	// is "X-CSRFToken".
 	Header string
-	// Form value used to set and get token.
+	// Form specifies which form value to be used to set and get token. Default is
+	// "_csrf".
 	Form string
-	// Key used for getting the unique ID per user.
+	// SessionKey is the session key used to get the unique ID of users. Default is
+	// "userID".
 	SessionKey string
-	// If true, send token via X-CSRFToken header.
+	// SetHeader indicates whether to send token via Header. Default is false.
 	SetHeader bool
-	// Disallow Origin appear in request header.
-	Origin bool
-	// The function called when Validate fails.
+	// NoOrigin indicates whether to disallow Origin appear in the request header.
+	// Default is false.
+	NoOrigin bool
+	// ErrorFunc defines the function to be executed when ValidToken fails.
 	ErrorFunc func(w http.ResponseWriter)
 }
 
@@ -116,70 +122,72 @@ func randomBytes(n int) []byte {
 }
 
 func prepareOptions(options []Options) Options {
+// Csrfer returns a middleware handler that injects csrf.CSRF into the request
+// context, and only generates a new CSRF token on every GET request.
+func Csrfer(opts ...Options) flamego.Handler {
 	var opt Options
-	if len(options) > 0 {
-		opt = options[0]
+	if len(opts) > 0 {
+		opt = opts[0]
 	}
 
-	// Defaults.
-	if len(opt.Secret) == 0 {
-		opt.Secret = string(randomBytes(10))
-	}
-	if len(opt.Header) == 0 {
-		opt.Header = "X-CSRFToken"
-	}
-	if len(opt.Form) == 0 {
-		opt.Form = "_csrf"
-	}
-	if len(opt.SessionKey) == 0 {
-		opt.SessionKey = "uid"
-	}
-	if opt.ErrorFunc == nil {
-		opt.ErrorFunc = func(w http.ResponseWriter) {
-			http.Error(w, "Invalid csrf token.", http.StatusBadRequest)
+	parseOptions := func(opts Options) Options {
+		if opt.Secret == "" {
+			opt.Secret = string(randomBytes(10))
 		}
+
+		if opt.Header == "" {
+			opt.Header = "X-CSRFToken"
+		}
+
+		if opt.Form == "" {
+			opt.Form = "_csrf"
+		}
+
+		if opt.SessionKey == "" {
+			opt.SessionKey = "userID"
+		}
+
+		if opt.ErrorFunc == nil {
+			opt.ErrorFunc = func(w http.ResponseWriter) {
+				http.Error(w, "Invalid CSRF token.", http.StatusBadRequest)
+			}
+		}
+		return opt
 	}
 
-	return opt
-}
-
-// Generate maps CSRF to each request. If this request is a Get request, it will generate a new token.
-// Additionally, depending on options set, generated tokens will be sent via Header and/or Cookie.
-func Generate(options ...Options) flamego.Handler {
-	opt := prepareOptions(options)
-	return func(ctx flamego.Context, sess session.Session) {
+	opt = parseOptions(opt)
+	return func(c flamego.Context, s session.Session) {
 		x := &csrf{
 			secret:    opt.Secret,
 			header:    opt.Header,
 			form:      opt.Form,
 			errorFunc: opt.ErrorFunc,
 		}
-		ctx.MapTo(x, (*CSRF)(nil))
+		c.MapTo(x, (*CSRF)(nil))
 
-		if opt.Origin && len(ctx.Request().Header.Get("Origin")) > 0 {
+		if opt.NoOrigin && c.Request().Header.Get("Origin") != "" {
 			return
 		}
 
-		x.id = "0"
-		uid := sess.Get(opt.SessionKey)
-		if uid != nil {
-			x.id = fmt.Sprintf("%s", uid)
+		if c.Request().Method != http.MethodGet {
+			return
 		}
 
-		x.token = GenerateToken(x.secret, x.id, "POST")
+		uid := s.Get(opt.SessionKey)
+		if uid != nil {
+			x.id = fmt.Sprintf("%s", uid)
+		} else {
+			x.id = "0"
+		}
+
+		x.token = GenerateToken(x.secret, x.id, http.MethodPost)
 		if opt.SetHeader {
-			ctx.ResponseWriter().Header().Add(opt.Header, x.token)
+			c.ResponseWriter().Header().Add(opt.Header, x.token)
 		}
 	}
 }
 
-// Csrfer maps CSRF to each request. If this request is a Get request, it will generate a new token.
-// Additionally, depending on options set, generated tokens will be sent via Header and/or Cookie.
-func Csrfer(options ...Options) flamego.Handler {
-	return Generate(options...)
-}
-
-// Validate should be used as a per route middleware.
+// Validate should be used as a per route middleware to validate CSRF tokens.
 func Validate(ctx flamego.Context, x CSRF) {
 	x.Validate(ctx)
 }
