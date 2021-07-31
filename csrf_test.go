@@ -337,7 +337,7 @@ func Test_Validate(t *testing.T) {
 
 		// Generate token.
 		f.Get("/private", func(x CSRF) string {
-			return x.GetToken()
+			return x.Token()
 		})
 
 		f.Post("/private", Validate, func() {})

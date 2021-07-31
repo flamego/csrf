@@ -19,17 +19,17 @@ import (
 // CSRF represents a CSRF service and is used to get the current token and validate a suspect token.
 type CSRF interface {
 	// Return HTTP header to search for token.
-	GetHeaderName() string
+	HeaderName() string
 	// Return form value to search for token.
-	GetFormName() string
+	FormName() string
 	// Return cookie name to search for token.
-	GetCookieName() string
+	CookieName() string
 	// Return cookie path
-	GetCookiePath() string
+	CookiePath() string
 	// Return the flag value used for the csrf token.
-	GetCookieHttpOnly() bool
+	CookieHttpOnly() bool
 	// Return the token.
-	GetToken() string
+	Token() string
 	// Validate by token.
 	ValidToken(t string) bool
 	// Error replies to the request with a custom function when ValidToken fails.
@@ -38,66 +38,66 @@ type CSRF interface {
 
 type csrf struct {
 	// Header name value for setting and getting csrf token.
-	Header string
+	header string
 	// Form name value for setting and getting csrf token.
-	Form string
+	form string
 	// Cookie name value for setting and getting csrf token.
-	Cookie string
-	//Cookie domain
-	CookieDomain string
-	//Cookie path
-	CookiePath string
+	cookie string
+	// Cookie domain
+	cookieDomain string
+	// Cookie path
+	cookiePath string
 	// Cookie HttpOnly flag value used for the csrf token.
-	CookieHttpOnly bool
+	cookieHttpOnly bool
 	// Token generated to pass via header, cookie, or hidden form value.
-	Token string
+	token string
 	// This value must be unique per user.
-	ID string
+	id string
 	// Secret used along with the unique id above to generate the Token.
-	Secret string
+	secret string
 	// ErrorFunc is the custom function that replies to the request when ValidToken fails.
-	ErrorFunc func(w http.ResponseWriter)
+	errorFunc func(w http.ResponseWriter)
 }
 
-// GetHeaderName returns the name of the HTTP header for csrf token.
-func (c *csrf) GetHeaderName() string {
-	return c.Header
+// HeaderName returns the name of the HTTP header for csrf token.
+func (c *csrf) HeaderName() string {
+	return c.header
 }
 
-// GetFormName returns the name of the form value for csrf token.
-func (c *csrf) GetFormName() string {
-	return c.Form
+// FormName returns the name of the form value for csrf token.
+func (c *csrf) FormName() string {
+	return c.form
 }
 
-// GetCookieName returns the name of the cookie for csrf token.
-func (c *csrf) GetCookieName() string {
-	return c.Cookie
+// CookieName returns the name of the cookie for csrf token.
+func (c *csrf) CookieName() string {
+	return c.cookie
 }
 
-// GetCookiePath returns the path of the cookie for csrf token.
-func (c *csrf) GetCookiePath() string {
-	return c.CookiePath
+// CookiePath returns the path of the cookie for csrf token.
+func (c *csrf) CookiePath() string {
+	return c.cookiePath
 }
 
-// GetCookieHttpOnly returns the flag value used for the csrf token.
-func (c *csrf) GetCookieHttpOnly() bool {
-	return c.CookieHttpOnly
+// CookieHttpOnly returns the flag value used for the csrf token.
+func (c *csrf) CookieHttpOnly() bool {
+	return c.cookieHttpOnly
 }
 
-// GetToken returns the current token. This is typically used
+// Token returns the current token. This is typically used
 // to populate a hidden form in an HTML template.
-func (c *csrf) GetToken() string {
-	return c.Token
+func (c *csrf) Token() string {
+	return c.token
 }
 
 // ValidToken validates the passed token against the existing Secret and ID.
 func (c *csrf) ValidToken(t string) bool {
-	return ValidToken(t, c.Secret, c.ID, "POST")
+	return ValidToken(t, c.secret, c.id, "POST")
 }
 
 // Error replies to the request when ValidToken fails.
 func (c *csrf) Error(w http.ResponseWriter) {
-	c.ErrorFunc(w)
+	c.errorFunc(w)
 }
 
 // Options maintains options to manage behavior of Generate.
@@ -192,14 +192,14 @@ func Generate(options ...Options) flamego.Handler {
 	opt := prepareOptions(options)
 	return func(ctx flamego.Context, sess session.Session) {
 		x := &csrf{
-			Secret:         opt.Secret,
-			Header:         opt.Header,
-			Form:           opt.Form,
-			Cookie:         opt.Cookie,
-			CookieDomain:   opt.CookieDomain,
-			CookiePath:     opt.CookiePath,
-			CookieHttpOnly: opt.CookieHttpOnly,
-			ErrorFunc:      opt.ErrorFunc,
+			secret:         opt.Secret,
+			header:         opt.Header,
+			form:           opt.Form,
+			cookie:         opt.Cookie,
+			cookieDomain:   opt.CookieDomain,
+			cookiePath:     opt.CookiePath,
+			cookieHttpOnly: opt.CookieHttpOnly,
+			errorFunc:      opt.ErrorFunc,
 		}
 		ctx.MapTo(x, (*CSRF)(nil))
 
@@ -207,22 +207,22 @@ func Generate(options ...Options) flamego.Handler {
 			return
 		}
 
-		x.ID = "0"
+		x.id = "0"
 		uid := sess.Get(opt.SessionKey)
 		if uid != nil {
-			x.ID = fmt.Sprintf("%s", uid)
+			x.id = fmt.Sprintf("%s", uid)
 		}
 
 		needsNew := false
 		oldUid := sess.Get(opt.oldSeesionKey)
-		if oldUid == nil || oldUid.(string) != x.ID {
+		if oldUid == nil || oldUid.(string) != x.id {
 			needsNew = true
-			sess.Set(opt.oldSeesionKey, x.ID)
+			sess.Set(opt.oldSeesionKey, x.id)
 		} else {
 			// If cookie present, map existing token, else generate a new one.
 			if cookie := ctx.Cookie(opt.Cookie); len(cookie) > 0 {
 				// FIXME: test coverage
-				x.Token = cookie
+				x.token = cookie
 			} else {
 				needsNew = true
 			}
@@ -230,11 +230,11 @@ func Generate(options ...Options) flamego.Handler {
 
 		if needsNew {
 			// FIXME: actionId.
-			x.Token = GenerateToken(x.Secret, x.ID, "POST")
+			x.token = GenerateToken(x.secret, x.id, "POST")
 			if opt.SetCookie {
 				cookie := http.Cookie{
 					Name:     opt.Cookie,
-					Value:    x.Token,
+					Value:    x.token,
 					Path:     opt.CookiePath,
 					Domain:   opt.CookieDomain,
 					HttpOnly: opt.CookieHttpOnly,
@@ -247,7 +247,7 @@ func Generate(options ...Options) flamego.Handler {
 		}
 
 		if opt.SetHeader {
-			ctx.ResponseWriter().Header().Add(opt.Header, x.Token)
+			ctx.ResponseWriter().Header().Add(opt.Header, x.token)
 		}
 	}
 }
@@ -263,12 +263,12 @@ func Csrfer(options ...Options) flamego.Handler {
 // using ValidToken. If this validation fails, custom Error is sent in the reply.
 // If neither a header or form value is found, http.StatusBadRequest is sent.
 func Validate(ctx flamego.Context, x CSRF) {
-	if token := ctx.Request().Header.Get(x.GetHeaderName()); len(token) > 0 {
+	if token := ctx.Request().Header.Get(x.HeaderName()); len(token) > 0 {
 		if !x.ValidToken(token) {
 			cookie := http.Cookie{
-				Name:   x.GetCookieName(),
+				Name:   x.CookieName(),
 				Value:  "",
-				Path:   x.GetCookiePath(),
+				Path:   x.CookiePath(),
 				MaxAge: -1,
 			}
 			ctx.SetCookie(cookie)
@@ -277,12 +277,12 @@ func Validate(ctx flamego.Context, x CSRF) {
 		return
 	}
 
-	if token := ctx.Request().FormValue(x.GetFormName()); len(token) > 0 {
+	if token := ctx.Request().FormValue(x.FormName()); len(token) > 0 {
 		if !x.ValidToken(token) {
 			cookie := http.Cookie{
-				Name:   x.GetCookieName(),
+				Name:   x.CookieName(),
 				Value:  "",
-				Path:   x.GetCookiePath(),
+				Path:   x.CookiePath(),
 				MaxAge: -1,
 			}
 			ctx.SetCookie(cookie)
