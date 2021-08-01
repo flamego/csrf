@@ -23,9 +23,9 @@ func TestGenerateToken(t *testing.T) {
 	f.Use(session.Sessioner())
 	f.Use(Csrfer())
 
-	// Simulate login.
-	f.Get("/login", func(sess session.Session, x CSRF) {
-		sess.Set("uid", "123456")
+	// Simulate login
+	f.Get("/login", func(s session.Session, x CSRF) {
+		s.Set("uid", "123456")
 	})
 
 	// Generate token via GET request
@@ -59,7 +59,7 @@ func TestGenerateHeader(t *testing.T) {
 			sess.Set("uid", "123456")
 		})
 
-		// Generate header.
+		// Generate token via GET request
 		f.Get("/private", func() {})
 
 		resp := httptest.NewRecorder()
@@ -67,7 +67,7 @@ func TestGenerateHeader(t *testing.T) {
 		assert.NoError(t, err)
 		f.ServeHTTP(resp, req)
 
-		assert.Contains(t, resp.Header().Get("Set-Cookie"), "")
+		assert.NotEmpty(t, resp.Header().Get("X-CSRFToken"))
 
 		resp = httptest.NewRecorder()
 		req, err = http.NewRequest(http.MethodGet, "/private", nil)
@@ -131,13 +131,12 @@ func TestGenerateHeader(t *testing.T) {
 		assert.NoError(t, err)
 		f.ServeHTTP(resp, req)
 
-		cookie := resp.Header().Get("Set-Cookie")
+		assert.NotEmpty(t, resp.Header().Get("X-Custom"))
 
 		resp = httptest.NewRecorder()
 		req, err = http.NewRequest(http.MethodGet, "/private", nil)
 		assert.NoError(t, err)
 
-		req.Header.Set("Cookie", cookie)
 		f.ServeHTTP(resp, req)
 
 		assert.NotEmpty(t, resp.Header().Get("X-Custom"))
