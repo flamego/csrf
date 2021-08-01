@@ -223,7 +223,7 @@ func Csrfer(opts ...Options) flamego.Handler {
 		x.token = GenerateToken(x.secret, x.id, http.MethodPost)
 		s.Set(oldIDKey, x.id)
 		s.Set(tokenKey, x.token)
-		s.Set(tokenExpiredAtKey, time.Now().Add(timeout))
+		s.Set(tokenExpiredAtKey, time.Now().Add(timeout).Add(-1*time.Minute)) // Renew token before the hard timeout
 
 		if opt.SetHeader {
 			c.ResponseWriter().Header().Set(opt.Header, x.token)
