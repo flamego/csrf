@@ -64,14 +64,14 @@ func (c *csrf) Error(w http.ResponseWriter) {
 }
 
 func (c *csrf) Validate(ctx flamego.Context) {
-	if token := ctx.Request().Header.Get(c.header); len(token) > 0 {
+	if token := ctx.Request().Header.Get(c.header); token != "" {
 		if !c.ValidToken(token) {
 			c.Error(ctx.ResponseWriter())
 		}
 		return
 	}
 
-	if token := ctx.Request().FormValue(c.form); len(token) > 0 {
+	if token := ctx.Request().FormValue(c.form); token != "" {
 		if !c.ValidToken(token) {
 			c.Error(ctx.ResponseWriter())
 		}
@@ -160,7 +160,7 @@ func Csrfer(opts ...Options) flamego.Handler {
 
 		if opt.ErrorFunc == nil {
 			opt.ErrorFunc = func(w http.ResponseWriter) {
-				http.Error(w, "Invalid CSRF token.", http.StatusBadRequest)
+				http.Error(w, "Bad Request: invalid CSRF token", http.StatusBadRequest)
 			}
 		}
 		return opt
@@ -225,7 +225,7 @@ func Csrfer(opts ...Options) flamego.Handler {
 		s.Set(tokenKey, x.token)
 		s.Set(tokenExpiredAtKey, time.Now().Add(timeout).Add(-1*time.Minute)) // Renew token before the hard timeout
 
-		if opt.SetHeader {
+		if opt.SetHeader && x.token != "" {
 			c.ResponseWriter().Header().Set(opt.Header, x.token)
 		}
 	})

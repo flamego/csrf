@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -23,9 +23,128 @@ func TestGenerateToken(t *testing.T) {
 	f.Use(session.Sessioner())
 	f.Use(Csrfer())
 
-	// Simulate login
 	f.Get("/login", func(s session.Session, x CSRF) {
-		s.Set("uid", "123456")
+		s.Set("userID", "123456")
+	})
+
+	f.Combo("/private").
+		Get(func(x CSRF) string { return x.Token() }). // Generate token via GET request
+		Post(Validate, func() {})
+
+	resp := httptest.NewRecorder()
+	req, err := http.NewRequest(http.MethodGet, "/login", nil)
+	assert.NoError(t, err)
+
+	f.ServeHTTP(resp, req)
+
+	// Obtain the session cookie
+	cookie := resp.Header().Get("Set-Cookie")
+
+	resp = httptest.NewRecorder()
+	req, err = http.NewRequest(http.MethodGet, "/private", nil)
+	assert.NoError(t, err)
+
+	req.Header.Set("Cookie", cookie)
+	f.ServeHTTP(resp, req)
+
+	token := resp.Body.String()
+	form := url.Values{}
+	form.Set("_csrf", token)
+
+	resp = httptest.NewRecorder()
+	req, err = http.NewRequest(http.MethodPost, "/private", strings.NewReader(form.Encode()))
+	assert.NoError(t, err)
+
+	req.Header.Set("Cookie", cookie)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	f.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusOK, resp.Code)
+}
+
+func TestGenerateToken_Header(t *testing.T) {
+	tests := []struct {
+		name       string
+		header     string
+		wantHeader string
+	}{
+		{
+			name:       "default",
+			wantHeader: "X-CSRFToken",
+		},
+		{
+			name:       "default",
+			header:     "X-Custom",
+			wantHeader: "X-Custom",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			f := flamego.NewWithLogger(&bytes.Buffer{})
+			f.Use(session.Sessioner())
+			f.Use(
+				Csrfer(
+					Options{
+						SetHeader: true,
+						Header:    test.header,
+					},
+				),
+			)
+
+			f.Get("/login", func(s session.Session, x CSRF) {
+				s.Set("userID", "123456")
+			})
+
+			f.Combo("/private").
+				Get(func() {}). // Generate token via GET request
+				Post(Validate, func() {})
+
+			resp := httptest.NewRecorder()
+			req, err := http.NewRequest(http.MethodGet, "/login", nil)
+			assert.NoError(t, err)
+
+			f.ServeHTTP(resp, req)
+
+			// Obtain the session cookie
+			cookie := resp.Header().Get("Set-Cookie")
+
+			resp = httptest.NewRecorder()
+			req, err = http.NewRequest(http.MethodGet, "/private", nil)
+			assert.NoError(t, err)
+
+			req.Header.Set("Cookie", cookie)
+			f.ServeHTTP(resp, req)
+
+			token := resp.Header().Get(test.wantHeader)
+			assert.NotEmpty(t, token)
+
+			resp = httptest.NewRecorder()
+			req, err = http.NewRequest(http.MethodPost, "/private", nil)
+			assert.NoError(t, err)
+
+			req.Header.Set("Cookie", cookie)
+			req.Header.Set(test.wantHeader, token)
+			f.ServeHTTP(resp, req)
+
+			assert.Equal(t, http.StatusOK, resp.Code)
+		})
+	}
+}
+
+func TestGenerateToken_NoOrigin(t *testing.T) {
+	f := flamego.NewWithLogger(&bytes.Buffer{})
+	f.Use(session.Sessioner())
+	f.Use(
+		Csrfer(
+			Options{
+				SetHeader: true,
+				NoOrigin:  true,
+			},
+		),
+	)
+
+	f.Get("/login", func(sess session.Session) {
+		sess.Set("userID", "123456")
 	})
 
 	// Generate token via GET request
@@ -37,6 +156,7 @@ func TestGenerateToken(t *testing.T) {
 
 	f.ServeHTTP(resp, req)
 
+	// Obtain the session cookie
 	cookie := resp.Header().Get("Set-Cookie")
 
 	resp = httptest.NewRecorder()
@@ -44,348 +164,94 @@ func TestGenerateToken(t *testing.T) {
 	assert.NoError(t, err)
 
 	req.Header.Set("Cookie", cookie)
+	req.Header.Set("Origin", "https://www.example.com")
 	f.ServeHTTP(resp, req)
-}
 
-func TestGenerateHeader(t *testing.T) {
-	t.Run("Generate token to header", func(t *testing.T) {
-		f := flamego.NewWithLogger(&bytes.Buffer{})
-		f.Use(session.Sessioner())
-		f.Use(Csrfer(Options{
-			SetHeader: true,
-		}))
-
-		f.Get("/login", func(sess session.Session) {
-			sess.Set("uid", "123456")
-		})
-
-		// Generate token via GET request
-		f.Get("/private", func() {})
-
-		resp := httptest.NewRecorder()
-		req, err := http.NewRequest(http.MethodGet, "/login", nil)
-		assert.NoError(t, err)
-		f.ServeHTTP(resp, req)
-
-		assert.NotEmpty(t, resp.Header().Get("X-CSRFToken"))
-
-		resp = httptest.NewRecorder()
-		req, err = http.NewRequest(http.MethodGet, "/private", nil)
-		assert.NoError(t, err)
-
-		f.ServeHTTP(resp, req)
-
-		assert.NotEmpty(t, resp.Header().Get("X-CSRFToken"))
-	})
-
-	t.Run("Generate token to header with origin", func(t *testing.T) {
-		f := flamego.NewWithLogger(&bytes.Buffer{})
-		f.Use(session.Sessioner())
-		f.Use(Csrfer(Options{
-			SetHeader: true,
-			NoOrigin:  true,
-		}))
-
-		f.Get("/login", func(sess session.Session) {
-			sess.Set("uid", "123456")
-		})
-
-		// Generate header.
-		f.Get("/private", func() {})
-
-		resp := httptest.NewRecorder()
-		req, err := http.NewRequest(http.MethodGet, "/login", nil)
-		assert.NoError(t, err)
-		f.ServeHTTP(resp, req)
-
-		cookie := resp.Header().Get("Set-Cookie")
-
-		resp = httptest.NewRecorder()
-		req, err = http.NewRequest(http.MethodGet, "/private", nil)
-		assert.NoError(t, err)
-
-		req.Header.Set("Cookie", cookie)
-		req.Header.Set("Origin", "https://www.example.com")
-		f.ServeHTTP(resp, req)
-
-		assert.Empty(t, resp.Header().Get("X-CSRFToken"))
-	})
-
-	t.Run("Generate token to custom header", func(t *testing.T) {
-		f := flamego.NewWithLogger(&bytes.Buffer{})
-		f.Use(session.Sessioner())
-		f.Use(Csrfer(Options{
-			SetHeader: true,
-			Header:    "X-Custom",
-		}))
-
-		f.Get("/login", func(sess session.Session) {
-			sess.Set("uid", "123456")
-		})
-
-		// Generate header.
-		f.Get("/private", func() {})
-
-		resp := httptest.NewRecorder()
-		req, err := http.NewRequest(http.MethodGet, "/login", nil)
-		assert.NoError(t, err)
-		f.ServeHTTP(resp, req)
-
-		assert.NotEmpty(t, resp.Header().Get("X-Custom"))
-
-		resp = httptest.NewRecorder()
-		req, err = http.NewRequest(http.MethodGet, "/private", nil)
-		assert.NoError(t, err)
-
-		f.ServeHTTP(resp, req)
-
-		assert.NotEmpty(t, resp.Header().Get("X-Custom"))
-	})
-}
-
-func TestValidate(t *testing.T) {
-	t.Run("Validate token", func(t *testing.T) {
-		f := flamego.NewWithLogger(&bytes.Buffer{})
-		f.Use(session.Sessioner())
-		f.Use(Csrfer())
-
-		f.Get("/login", func(sess session.Session) {
-			sess.Set("uid", "123456")
-		})
-
-		// Generate token via GET request
-		f.Get("/private", func() {})
-
-		resp := httptest.NewRecorder()
-		req, err := http.NewRequest(http.MethodGet, "/login", nil)
-		assert.NoError(t, err)
-		f.ServeHTTP(resp, req)
-
-		cookie := resp.Header().Get("Set-Cookie")
-
-		resp = httptest.NewRecorder()
-		req, err = http.NewRequest(http.MethodGet, "/private", nil)
-		assert.NoError(t, err)
-
-		req.Header.Set("Cookie", cookie)
-		f.ServeHTTP(resp, req)
-
-		token := resp.Body.String()
-
-		// Post using _csrf form value.
-		data := url.Values{}
-		data.Set("_csrf", token)
-
-		resp = httptest.NewRecorder()
-		req, err = http.NewRequest(http.MethodPost, "/private", bytes.NewBufferString(data.Encode()))
-		assert.NoError(t, err)
-
-		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-		req.Header.Set("Content-Length", strconv.Itoa(len(data.Encode())))
-		req.Header.Set("Cookie", cookie)
-		f.ServeHTTP(resp, req)
-
-		assert.NotEqual(t, resp.Code, http.StatusBadRequest)
-
-		// Post using X-CSRFToken HTTP header.
-		resp = httptest.NewRecorder()
-		req, err = http.NewRequest(http.MethodPost, "/private", nil)
-		assert.NoError(t, err)
-
-		req.Header.Set("X-CSRFToken", token)
-		req.Header.Set("Cookie", cookie)
-		f.ServeHTTP(resp, req)
-
-		assert.NotEqual(t, resp.Code, http.StatusBadRequest)
-	})
-
-	t.Run("Validate custom token", func(t *testing.T) {
-		f := flamego.NewWithLogger(&bytes.Buffer{})
-		f.Use(session.Sessioner())
-		f.Use(Csrfer(Options{
-			Header: "X-Custom",
-			Form:   "_custom",
-		}))
-
-		f.Get("/login", func(sess session.Session) {
-			sess.Set("uid", "123456")
-		})
-
-		// Generate token via GET request
-		f.Get("/private", func() {})
-
-		resp := httptest.NewRecorder()
-		req, err := http.NewRequest(http.MethodGet, "/login", nil)
-		assert.NoError(t, err)
-		f.ServeHTTP(resp, req)
-
-		cookie := resp.Header().Get("Set-Cookie")
-
-		resp = httptest.NewRecorder()
-		req, err = http.NewRequest(http.MethodGet, "/private", nil)
-		assert.NoError(t, err)
-
-		req.Header.Set("Cookie", cookie)
-		f.ServeHTTP(resp, req)
-
-		token := resp.Body.String()
-
-		// Post using _csrf form value.
-		data := url.Values{}
-		data.Set("_csrf", token)
-
-		resp = httptest.NewRecorder()
-		req, err = http.NewRequest(http.MethodPost, "/private", bytes.NewBufferString(data.Encode()))
-		assert.NoError(t, err)
-
-		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-		req.Header.Set("Content-Length", strconv.Itoa(len(data.Encode())))
-		req.Header.Set("Cookie", cookie)
-		f.ServeHTTP(resp, req)
-
-		assert.NotEqual(t, resp.Code, http.StatusBadRequest)
-
-		// Post using X-Custom HTTP header.
-		resp = httptest.NewRecorder()
-		req, err = http.NewRequest(http.MethodPost, "/private", nil)
-		assert.NoError(t, err)
-
-		req.Header.Set("X-Custom", token)
-		req.Header.Set("Cookie", cookie)
-		f.ServeHTTP(resp, req)
-
-		assert.NotEqual(t, resp.Code, http.StatusBadRequest)
-	})
-
-	t.Run("Validate token with custom error", func(t *testing.T) {
-		f := flamego.NewWithLogger(&bytes.Buffer{})
-		f.Use(session.Sessioner())
-		f.Use(Csrfer(Options{
-			ErrorFunc: func(w http.ResponseWriter) {
-				http.Error(w, "custom error", http.StatusUnprocessableEntity)
-			},
-		}))
-
-		f.Get("/login", func(sess session.Session) {
-			sess.Set("uid", "123456")
-		})
-
-		// Generate token via GET request
-		f.Get("/private", func(x CSRF) string {
-			return x.Token()
-		})
-
-		f.Post("/private", Validate, func() {})
-
-		resp := httptest.NewRecorder()
-		req, err := http.NewRequest(http.MethodGet, "/login", nil)
-		assert.NoError(t, err)
-		f.ServeHTTP(resp, req)
-
-		cookie := resp.Header().Get("Set-Cookie")
-
-		resp = httptest.NewRecorder()
-		req, err = http.NewRequest(http.MethodGet, "/private", nil)
-		assert.NoError(t, err)
-
-		req.Header.Set("Cookie", cookie)
-		f.ServeHTTP(resp, req)
-
-		// Post using _csrf form value.
-		data := url.Values{}
-		data.Set("_csrf", "invalid")
-
-		resp = httptest.NewRecorder()
-		req, err = http.NewRequest(http.MethodPost, "/private", bytes.NewBufferString(data.Encode()))
-		assert.NoError(t, err)
-
-		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-		req.Header.Set("Content-Length", strconv.Itoa(len(data.Encode())))
-		req.Header.Set("Cookie", cookie)
-		f.ServeHTTP(resp, req)
-
-		assert.Equal(t, resp.Code, http.StatusUnprocessableEntity)
-		assert.Equal(t, resp.Body.String(), "custom error\n")
-
-		// Post using X-CSRFToken HTTP header.
-		resp = httptest.NewRecorder()
-		req, err = http.NewRequest(http.MethodPost, "/private", nil)
-		assert.NoError(t, err)
-
-		req.Header.Set("X-CSRFToken", "invalid")
-		req.Header.Set("Cookie", cookie)
-		f.ServeHTTP(resp, req)
-
-		assert.Equal(t, resp.Code, http.StatusUnprocessableEntity)
-		assert.Equal(t, resp.Body.String(), "custom error\n")
-	})
+	assert.Empty(t, resp.Header().Get("X-CSRFToken"))
 }
 
 func TestInvalid(t *testing.T) {
-	t.Run("Invalid session data type", func(t *testing.T) {
-		f := flamego.NewWithLogger(&bytes.Buffer{})
-		f.Use(session.Sessioner())
-		f.Use(Csrfer())
+	tests := []struct {
+		name     string
+		options  Options
+		wantCode int
+		wantBody string
+	}{
+		{
+			name:     "default error",
+			options:  Options{},
+			wantCode: http.StatusBadRequest,
+			wantBody: "Bad Request: invalid CSRF token\n",
+		},
+		{
+			name: "custom error",
+			options: Options{
+				ErrorFunc: func(w http.ResponseWriter) {
+					http.Error(w, "custom error", http.StatusUnprocessableEntity)
+				},
+			},
+			wantCode: http.StatusUnprocessableEntity,
+			wantBody: "custom error\n",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			f := flamego.NewWithLogger(&bytes.Buffer{})
+			f.Use(session.Sessioner())
+			f.Use(Csrfer(test.options))
 
-		f.Get("/login", func(sess session.Session) {
-			sess.Set("uid", true)
+			f.Get("/login", func(sess session.Session) {
+				sess.Set("userID", "123456")
+			})
+
+			f.Combo("/private").
+				Get(func(x CSRF) string { return x.Token() }). // Generate token via GET request
+				Post(Validate, func() {})
+
+			resp := httptest.NewRecorder()
+			req, err := http.NewRequest(http.MethodGet, "/login", nil)
+			assert.NoError(t, err)
+
+			f.ServeHTTP(resp, req)
+
+			// Obtain the session cookie
+			cookie := resp.Header().Get("Set-Cookie")
+
+			resp = httptest.NewRecorder()
+			req, err = http.NewRequest(http.MethodGet, "/private", nil)
+			assert.NoError(t, err)
+
+			req.Header.Set("Cookie", cookie)
+			f.ServeHTTP(resp, req)
+
+			t.Run("invalid form value", func(t *testing.T) {
+				form := url.Values{}
+				form.Set("_csrf", "invalid")
+
+				resp = httptest.NewRecorder()
+				req, err = http.NewRequest(http.MethodPost, "/private", strings.NewReader(form.Encode()))
+				assert.NoError(t, err)
+
+				req.Header.Set("Cookie", cookie)
+				req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+				f.ServeHTTP(resp, req)
+
+				assert.Equal(t, resp.Code, test.wantCode)
+				assert.Equal(t, resp.Body.String(), test.wantBody)
+			})
+
+			t.Run("invalid HTTP header", func(t *testing.T) {
+				resp = httptest.NewRecorder()
+				req, err = http.NewRequest(http.MethodPost, "/private", nil)
+				assert.NoError(t, err)
+
+				req.Header.Set("Cookie", cookie)
+				req.Header.Set("X-CSRFToken", "invalid")
+				f.ServeHTTP(resp, req)
+
+				assert.Equal(t, resp.Code, test.wantCode)
+				assert.Equal(t, resp.Body.String(), test.wantBody)
+			})
 		})
-
-		// Generate token via GET request
-		f.Get("/private", func() {})
-
-		resp := httptest.NewRecorder()
-		req, err := http.NewRequest(http.MethodGet, "/login", nil)
-		assert.NoError(t, err)
-		f.ServeHTTP(resp, req)
-
-		cookie := resp.Header().Get("Set-Cookie")
-
-		resp = httptest.NewRecorder()
-		req, err = http.NewRequest(http.MethodGet, "/private", nil)
-		assert.NoError(t, err)
-
-		req.Header.Set("Cookie", cookie)
-		f.ServeHTTP(resp, req)
-	})
-
-	t.Run("Invalid request", func(t *testing.T) {
-		f := flamego.NewWithLogger(&bytes.Buffer{})
-		f.Use(session.Sessioner())
-		f.Use(Csrfer())
-
-		f.Get("/login", Validate, func() {})
-
-		// Generate token via GET request
-		f.Get("/private", func() {})
-
-		resp := httptest.NewRecorder()
-		req, err := http.NewRequest(http.MethodGet, "/login", nil)
-		assert.NoError(t, err)
-		f.ServeHTTP(resp, req)
-
-		assert.Equal(t, resp.Code, http.StatusBadRequest)
-	})
-
-	t.Run("Invalid token", func(t *testing.T) {
-		f := flamego.NewWithLogger(&bytes.Buffer{})
-		f.Use(session.Sessioner())
-		f.Use(Csrfer())
-
-		f.Get("/login", Validate, func() {})
-
-		resp := httptest.NewRecorder()
-		req, err := http.NewRequest(http.MethodGet, "/login", nil)
-		assert.NoError(t, err)
-		f.ServeHTTP(resp, req)
-
-		resp = httptest.NewRecorder()
-		req, err = http.NewRequest(http.MethodGet, "/login", nil)
-		assert.NoError(t, err)
-
-		req.Header.Set("X-CSRFToken", "invalid")
-		f.ServeHTTP(resp, req)
-
-		assert.Equal(t, resp.Code, http.StatusBadRequest)
-	})
+	}
 }
