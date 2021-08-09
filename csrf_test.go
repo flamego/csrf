@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -24,7 +25,7 @@ func TestGenerateToken(t *testing.T) {
 	f.Use(Csrfer())
 
 	f.Get("/login", func(s session.Session, x CSRF) {
-		s.Set("userID", "123456")
+		s.Set(defaultSessionKey, "123456")
 	})
 
 	f.Combo("/private").
@@ -49,7 +50,7 @@ func TestGenerateToken(t *testing.T) {
 
 	token := resp.Body.String()
 	form := url.Values{}
-	form.Set("_csrf", token)
+	form.Set(defaultForm, token)
 
 	resp = httptest.NewRecorder()
 	req, err = http.NewRequest(http.MethodPost, "/private", strings.NewReader(form.Encode()))
@@ -70,7 +71,7 @@ func TestGenerateToken_Header(t *testing.T) {
 	}{
 		{
 			name:       "default",
-			wantHeader: "X-CSRFToken",
+			wantHeader: defaultHeader,
 		},
 		{
 			name:       "default",
@@ -92,7 +93,7 @@ func TestGenerateToken_Header(t *testing.T) {
 			)
 
 			f.Get("/login", func(s session.Session, x CSRF) {
-				s.Set("userID", "123456")
+				s.Set(defaultSessionKey, "123456")
 			})
 
 			f.Combo("/private").
@@ -144,7 +145,7 @@ func TestGenerateToken_NoOrigin(t *testing.T) {
 	)
 
 	f.Get("/login", func(sess session.Session) {
-		sess.Set("userID", "123456")
+		sess.Set(defaultSessionKey, "123456")
 	})
 
 	// Generate token via GET request
@@ -167,7 +168,7 @@ func TestGenerateToken_NoOrigin(t *testing.T) {
 	req.Header.Set("Origin", "https://www.example.com")
 	f.ServeHTTP(resp, req)
 
-	assert.Empty(t, resp.Header().Get("X-CSRFToken"))
+	assert.Empty(t, resp.Header().Get(defaultHeader))
 }
 
 func TestInvalid(t *testing.T) {
@@ -201,7 +202,7 @@ func TestInvalid(t *testing.T) {
 			f.Use(Csrfer(test.options))
 
 			f.Get("/login", func(sess session.Session) {
-				sess.Set("userID", "123456")
+				sess.Set(defaultSessionKey, "123456")
 			})
 
 			f.Combo("/private").
@@ -226,7 +227,7 @@ func TestInvalid(t *testing.T) {
 
 			t.Run("invalid form value", func(t *testing.T) {
 				form := url.Values{}
-				form.Set("_csrf", "invalid")
+				form.Set(defaultForm, "invalid")
 
 				resp = httptest.NewRecorder()
 				req, err = http.NewRequest(http.MethodPost, "/private", strings.NewReader(form.Encode()))
@@ -246,7 +247,7 @@ func TestInvalid(t *testing.T) {
 				assert.NoError(t, err)
 
 				req.Header.Set("Cookie", cookie)
-				req.Header.Set("X-CSRFToken", "invalid")
+				req.Header.Set(defaultHeader, "invalid")
 				f.ServeHTTP(resp, req)
 
 				assert.Equal(t, resp.Code, test.wantCode)
@@ -254,4 +255,53 @@ func TestInvalid(t *testing.T) {
 			})
 		})
 	}
+}
+
+func TestTokenExpired(t *testing.T) {
+	f := flamego.NewWithLogger(&bytes.Buffer{})
+	f.Use(session.Sessioner())
+	f.Use(Csrfer())
+
+	f.Get("/touch", func(x CSRF) string { return x.Token() })
+	f.Post("/set-expired", Validate, func(s session.Session, x CSRF) string {
+		s.Set(tokenExpiredAtKey, time.Now())
+		return x.Token()
+	})
+
+	resp := httptest.NewRecorder()
+	req, err := http.NewRequest(http.MethodGet, "/touch", nil)
+	assert.NoError(t, err)
+
+	f.ServeHTTP(resp, req)
+
+	// Obtain the session cookie and token
+	cookie := resp.Header().Get("Set-Cookie")
+	token := resp.Body.String()
+
+	form := url.Values{}
+	form.Set(defaultForm, token)
+
+	resp = httptest.NewRecorder()
+	req, err = http.NewRequest(http.MethodPost, "/set-expired", strings.NewReader(form.Encode()))
+	assert.NoError(t, err)
+
+	req.Header.Set("Cookie", cookie)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	f.ServeHTTP(resp, req)
+
+	assert.Equal(t, resp.Code, http.StatusOK)
+
+	// We should see a new token generated after this request. The previous token
+	// continue passing the validation because it is still valid for 24 hours
+	// (hard-coded in xsrf.go), we can't wait that long in the test.
+	resp = httptest.NewRecorder()
+	req, err = http.NewRequest(http.MethodPost, "/set-expired", strings.NewReader(form.Encode()))
+	assert.NoError(t, err)
+
+	req.Header.Set("Cookie", cookie)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	f.ServeHTTP(resp, req)
+
+	assert.Equal(t, resp.Code, http.StatusOK)
+	assert.NotEqual(t, token, resp.Body.String())
 }

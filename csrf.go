@@ -87,7 +87,7 @@ type Options struct {
 	// auto-generated 10-char random string.
 	Secret string
 	// Header specifies which HTTP header to be used to set and get token. Default
-	// is "X-CSRFToken".
+	// is "X-CSRF-Token".
 	Header string
 	// Form specifies which form value to be used to set and get token. Default is
 	// "_csrf".
@@ -133,6 +133,14 @@ func (invoke csrfInvoker) Invoke(args []interface{}) ([]reflect.Value, error) {
 	return nil, nil
 }
 
+const (
+	defaultHeader     = "X-CSRF-Token"
+	defaultForm       = "_csrf"
+	defaultSessionKey = "userID"
+)
+
+const tokenExpiredAtKey = "flamego::csrf::tokenExpiredAt"
+
 // Csrfer returns a middleware handler that injects csrf.CSRF into the request
 // context, and only generates a new CSRF token on every GET request.
 func Csrfer(opts ...Options) flamego.Handler {
@@ -147,15 +155,15 @@ func Csrfer(opts ...Options) flamego.Handler {
 		}
 
 		if opt.Header == "" {
-			opt.Header = "X-CSRFToken"
+			opt.Header = defaultHeader
 		}
 
 		if opt.Form == "" {
-			opt.Form = "_csrf"
+			opt.Form = defaultForm
 		}
 
 		if opt.SessionKey == "" {
-			opt.SessionKey = "userID"
+			opt.SessionKey = defaultSessionKey
 		}
 
 		if opt.ErrorFunc == nil {
@@ -185,7 +193,6 @@ func Csrfer(opts ...Options) flamego.Handler {
 
 		const oldIDKey = "flamego::csrf::oldID"
 		const tokenKey = "flamego::csrf::token"
-		const tokenExpiredAtKey = "flamego::csrf::tokenExpiredAt"
 		needsNewToken := func(s session.Session, x *csrf) bool {
 			if opt.NoOrigin && c.Request().Header.Get("Origin") != "" {
 				return false
