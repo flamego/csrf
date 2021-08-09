@@ -263,9 +263,8 @@ func TestTokenExpired(t *testing.T) {
 	f.Use(Csrfer())
 
 	f.Get("/touch", func(x CSRF) string { return x.Token() })
-	f.Post("/set-expired", Validate, func(s session.Session, x CSRF) string {
+	f.Post("/set-expired", Validate, func(s session.Session) {
 		s.Set(tokenExpiredAtKey, time.Now())
-		return x.Token()
 	})
 
 	resp := httptest.NewRecorder()
@@ -291,17 +290,15 @@ func TestTokenExpired(t *testing.T) {
 
 	assert.Equal(t, resp.Code, http.StatusOK)
 
-	// We should see a new token generated after this request. The previous token
-	// continue passing the validation because it is still valid for 24 hours
-	// (hard-coded in xsrf.go), we can't wait that long in the test.
+	// Touch should now return a new token
 	resp = httptest.NewRecorder()
-	req, err = http.NewRequest(http.MethodPost, "/set-expired", strings.NewReader(form.Encode()))
+	req, err = http.NewRequest(http.MethodGet, "/touch", nil)
 	assert.NoError(t, err)
 
 	req.Header.Set("Cookie", cookie)
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	f.ServeHTTP(resp, req)
 
 	assert.Equal(t, resp.Code, http.StatusOK)
+	assert.NotEmpty(t, resp.Body.String())
 	assert.NotEqual(t, token, resp.Body.String())
 }

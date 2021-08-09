@@ -194,10 +194,6 @@ func Csrfer(opts ...Options) flamego.Handler {
 		const oldIDKey = "flamego::csrf::oldID"
 		const tokenKey = "flamego::csrf::token"
 		needsNewToken := func(s session.Session, x *csrf) bool {
-			if opt.NoOrigin && c.Request().Header.Get("Origin") != "" {
-				return false
-			}
-
 			// The value of ID can change upon user authentication, we need to generate a
 			// new CSRF token whenever the old and the current ID do not match.
 			oldID, ok := s.Get(oldIDKey).(string)
@@ -210,20 +206,21 @@ func Csrfer(opts ...Options) flamego.Handler {
 				return true
 			}
 
-			// Check if the session already has a CSRF token, and so map the existing one.
-			if token, ok := s.Get(tokenKey).(string); ok && token != "" {
-				x.token = token
-				return false
+			// Check if the session already has a CSRF token
+			token, ok := s.Get(tokenKey).(string)
+			if !ok || token == "" {
+				return true
 			}
 
-			if c.Request().Method != http.MethodGet {
-				return false
-			}
-
-			return true
+			x.token = token
+			return false
 		}
 
-		if !needsNewToken(s, x) {
+		if !needsNewToken(s, x) || c.Request().Method != http.MethodGet {
+			return
+		}
+
+		if opt.NoOrigin && c.Request().Header.Get("Origin") != "" {
 			return
 		}
 
@@ -232,7 +229,7 @@ func Csrfer(opts ...Options) flamego.Handler {
 		s.Set(tokenKey, x.token)
 		s.Set(tokenExpiredAtKey, time.Now().Add(timeout).Add(-1*time.Minute)) // Renew token before the hard timeout
 
-		if opt.SetHeader && x.token != "" {
+		if opt.SetHeader {
 			c.ResponseWriter().Header().Set(opt.Header, x.token)
 		}
 	})
