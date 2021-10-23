@@ -19,8 +19,8 @@ The minimum requirement of Go is **1.16**.
 ```html
 <!-- templates/protected.tmpl -->
 <form action="/protected" method="POST">
-    <input type="hidden" name="_csrf" value="{{.CSRFToken}}">
-    <button>Submit</button>
+  <input type="hidden" name="_csrf" value="{{.CSRFToken}}">
+  <button>Submit</button>
 </form>
 ```
 
