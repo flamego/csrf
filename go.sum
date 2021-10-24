@@ -60,10 +60,6 @@ github.com/fatih/color v1.7.0/go.mod h1:Zm6kSWBoL9eyXnKyktHP6abPY2pDugNf5Kwzbycv
 github.com/fatih/color v1.10.0 h1:s36xzo75JdqLaaWoiEHk767eHiwo0598uUxyfiPkDsg=
 github.com/fatih/color v1.10.0/go.mod h1:ELkj/draVOlAH/xkhN6mQ50Qd0MPOk5AAr3maGEBuJM=
 github.com/flamego/flamego v0.0.0-20210516144321-6b13a8d6f9bf/go.mod h1:DkwGPPSOX6S/4th2btOuP3HQX8zL59GZbxxOt6aFF0A=
-github.com/flamego/flamego v0.0.0-20210731105206-282fad6835c3 h1:b3PRMNGHtNEXlL51HjPr27fi7WG0EOLcivWi5KyGc+Q=
-github.com/flamego/flamego v0.0.0-20210731105206-282fad6835c3/go.mod h1:DkwGPPSOX6S/4th2btOuP3HQX8zL59GZbxxOt6aFF0A=
-github.com/flamego/flamego v0.0.0-20210731132831-06a29ca13c4c h1:5e+zQu5en3LJ4mG16m1keD2++mOB820Mjf9TcmZCO1E=
-github.com/flamego/flamego v0.0.0-20210731132831-06a29ca13c4c/go.mod h1:DkwGPPSOX6S/4th2btOuP3HQX8zL59GZbxxOt6aFF0A=
 github.com/flamego/flamego v0.0.0-20210731140954-4f6acd0c1259 h1:aEEbjIk+pgGey/MABSi5W/B/8s+khLNanfZclcsfsTQ=
 github.com/flamego/flamego v0.0.0-20210731140954-4f6acd0c1259/go.mod h1:DkwGPPSOX6S/4th2btOuP3HQX8zL59GZbxxOt6aFF0A=
 github.com/flamego/session v0.0.0-20210607182212-8d30fdff82f2 h1:ajz9HXHgGkbv2eXA833AMGo7ODRXrNjhdhJTdFZVpi0=
