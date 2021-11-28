@@ -264,9 +264,9 @@ func TestTokenExpired(t *testing.T) {
 
 	f.Get("/touch", func(x CSRF) string { return x.Token() })
 	f.Post("/set-expired", Validate, func(s session.Session) {
-		// NOTE: Time seems flaky within one second on Windows, so let's be a little bit
-		//  more extreme.
-		s.Set(tokenExpiredAtKey, time.Now().Add(-1*time.Second))
+		// NOTE: Time seems flaky within a minute on Windows in CI, so let's be a little
+		// more extreme.
+		s.Set(tokenExpiredAtKey, time.Now().Add(-1*time.Minute))
 	})
 
 	resp := httptest.NewRecorder()
