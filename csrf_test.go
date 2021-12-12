@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -264,9 +265,7 @@ func TestTokenExpired(t *testing.T) {
 
 	f.Get("/touch", func(x CSRF) string { return x.Token() })
 	f.Post("/set-expired", Validate, func(s session.Session) {
-		// NOTE: Time seems flaky within a minute on Windows in CI, so let's be a little
-		// more extreme.
-		s.Set(tokenExpiredAtKey, time.Now().Add(-1*time.Minute))
+		s.Set(tokenExpiredAtKey, time.Now())
 	})
 
 	resp := httptest.NewRecorder()
@@ -291,6 +290,13 @@ func TestTokenExpired(t *testing.T) {
 	f.ServeHTTP(resp, req)
 
 	assert.Equal(t, resp.Code, http.StatusOK)
+
+	// NOTE: It appears that time.Now().UnixNano() sometimes is the same if the test
+	// runs too faster (within the same second) on Windows, which results generating
+	// the same CSRF token. So let's sleep for one second on Windows.
+	if runtime.GOOS == "windows" {
+		time.Sleep(time.Second)
+	}
 
 	// Touch should now return a new token
 	resp = httptest.NewRecorder()
