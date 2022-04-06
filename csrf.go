@@ -6,9 +6,8 @@
 package csrf
 
 import (
-	"crypto/rand"
 	"fmt"
-	r "math/rand"
+	"math/rand"
 	"net/http"
 	"reflect"
 	"time"
@@ -104,23 +103,31 @@ type Options struct {
 	ErrorFunc func(w http.ResponseWriter)
 }
 
+const (
+	letterBytes   = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+	letterIdxBits = 6                    // 6 bits to represent a letter index
+	letterIdxMask = 1<<letterIdxBits - 1 // All 1-bits, as many as letterIdxBits
+	letterIdxMax  = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
+)
+
+var src = rand.NewSource(time.Now().UnixNano())
+
 // randomBytes generates n random []byte.
 func randomBytes(n int) []byte {
-	const alphanum = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-	var bytes = make([]byte, n)
-	var randby bool
-	if num, err := rand.Read(bytes); num != n || err != nil {
-		r.Seed(time.Now().UnixNano())
-		randby = true
-	}
-	for i, b := range bytes {
-		if randby {
-			bytes[i] = alphanum[r.Intn(len(alphanum))]
-		} else {
-			bytes[i] = alphanum[b%byte(len(alphanum))]
+	b := make([]byte, n)
+	// A src.Int63() generates 63 random bits, enough for letterIdxMax characters!
+	for i, cache, remain := n-1, src.Int63(), letterIdxMax; i >= 0; {
+		if remain == 0 {
+			cache, remain = src.Int63(), letterIdxMax
 		}
+		if idx := int(cache & letterIdxMask); idx < len(letterBytes) {
+			b[i] = letterBytes[idx]
+			i--
+		}
+		cache >>= letterIdxBits
+		remain--
 	}
-	return bytes
+	return b
 }
 
 var _ inject.FastInvoker = (*csrfInvoker)(nil)
