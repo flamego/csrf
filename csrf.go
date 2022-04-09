@@ -115,7 +115,6 @@ func randomBytes(n int) []byte {
 	)
 
 	b := make([]byte, n)
-
 	for i, cache, remain := n-1, src.Int63(), letterIdxMax; i >= 0; {
 		if remain == 0 {
 			cache, remain = src.Int63(), letterIdxMax
