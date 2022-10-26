@@ -9,7 +9,7 @@ Package csrf is a middleware that generates and validates CSRF tokens for [Flame
 
 ## Installation
 
-The minimum requirement of Go is **1.16**.
+The minimum requirement of Go is **1.18**.
 
 	go get github.com/flamego/csrf
 
