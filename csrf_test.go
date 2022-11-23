@@ -240,8 +240,8 @@ func TestInvalid(t *testing.T) {
 				req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 				f.ServeHTTP(resp, req)
 
-				assert.Equal(t, resp.Code, test.wantCode)
-				assert.Equal(t, resp.Body.String(), test.wantBody)
+				assert.Equal(t, test.wantCode, resp.Code)
+				assert.Equal(t, test.wantBody, resp.Body.String())
 			})
 
 			t.Run("invalid HTTP header", func(t *testing.T) {
@@ -253,8 +253,8 @@ func TestInvalid(t *testing.T) {
 				req.Header.Set(defaultHeader, "invalid")
 				f.ServeHTTP(resp, req)
 
-				assert.Equal(t, resp.Code, test.wantCode)
-				assert.Equal(t, resp.Body.String(), test.wantBody)
+				assert.Equal(t, test.wantCode, resp.Code)
+				assert.Equal(t, test.wantBody, resp.Body.String())
 			})
 		})
 	}
@@ -291,7 +291,7 @@ func TestTokenExpired(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	f.ServeHTTP(resp, req)
 
-	assert.Equal(t, resp.Code, http.StatusOK)
+	assert.Equal(t, http.StatusOK, resp.Code)
 
 	// NOTE: It appears that time.Now().UnixNano() sometimes is the same if the test
 	// runs too faster (within the same second) on Windows, which results generating
@@ -308,7 +308,7 @@ func TestTokenExpired(t *testing.T) {
 	req.Header.Set("Cookie", cookie)
 	f.ServeHTTP(resp, req)
 
-	assert.Equal(t, resp.Code, http.StatusOK)
+	assert.Equal(t, http.StatusOK, resp.Code)
 	assert.NotEmpty(t, resp.Body.String())
 	assert.NotEqual(t, token, resp.Body.String())
 }
@@ -339,6 +339,6 @@ func TestGobSerialization(t *testing.T) {
 	assert.NoError(t, err)
 
 	f.ServeHTTP(resp, req)
-	assert.Equal(t, resp.Code, http.StatusOK)
-	assert.Equal(t, resp.Body.String(), token)
+	assert.Equal(t, http.StatusOK, resp.Code)
+	assert.Equal(t, token, resp.Body.String())
 }
