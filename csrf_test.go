@@ -9,11 +9,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"runtime"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/flamego/session/redis"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/flamego/flamego"
@@ -309,4 +311,34 @@ func TestTokenExpired(t *testing.T) {
 	assert.Equal(t, resp.Code, http.StatusOK)
 	assert.NotEmpty(t, resp.Body.String())
 	assert.NotEqual(t, token, resp.Body.String())
+}
+
+func TestGobSerialization(t *testing.T) {
+	f := flamego.NewWithLogger(&bytes.Buffer{})
+
+	const db = 15
+	f.Use(session.Sessioner(session.Options{
+		Initer: redis.Initer(),
+		Config: redis.Config{
+			Options: &redis.Options{
+				Addr: os.ExpandEnv("$REDIS_HOST:$REDIS_PORT"),
+				DB:   db,
+			},
+		},
+	}))
+	f.Use(Csrfer())
+
+	var token string
+	f.Get("/touch", func(x CSRF) string {
+		token = x.Token()
+		return token
+	})
+
+	resp := httptest.NewRecorder()
+	req, err := http.NewRequest(http.MethodGet, "/touch", nil)
+	assert.NoError(t, err)
+
+	f.ServeHTTP(resp, req)
+	assert.Equal(t, resp.Code, http.StatusOK)
+	assert.Equal(t, resp.Body.String(), token)
 }
