@@ -6,6 +6,7 @@
 package csrf
 
 import (
+	"encoding/gob"
 	"fmt"
 	"math/rand"
 	"net/http"
@@ -16,6 +17,10 @@ import (
 	"github.com/flamego/flamego/inject"
 	"github.com/flamego/session"
 )
+
+func init() {
+	gob.Register(time.Time{})
+}
 
 // CSRF represents a CSRF service and is used to get the current token and
 // validate a suspect token.
