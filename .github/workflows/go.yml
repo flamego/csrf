@@ -76,7 +76,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
       - name: Run tests with coverage
-        run: go test -v -race -coverprofile=coverage -covermode=atomic ./... -run ^\QTestGobSerialization\E$
+        run: go test -v -race -coverprofile=coverage -covermode=atomic ./... -run ^TestGobSerialization$
         env:
           REDIS_HOST: localhost
           REDIS_PORT: 6379
