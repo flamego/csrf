@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/flamego/flamego v1.7.0
-	github.com/flamego/session v1.2.1
+	github.com/flamego/session v1.2.2
 	github.com/stretchr/testify v1.8.1
 )
 
