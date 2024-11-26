@@ -160,32 +160,28 @@ func Csrfer(opts ...Options) flamego.Handler {
 		opt = opts[0]
 	}
 
-	parseOptions := func(opts Options) Options {
-		if opt.Secret == "" {
-			opt.Secret = string(randomBytes(10))
-		}
-
-		if opt.Header == "" {
-			opt.Header = defaultHeader
-		}
-
-		if opt.Form == "" {
-			opt.Form = defaultForm
-		}
-
-		if opt.SessionKey == "" {
-			opt.SessionKey = defaultSessionKey
-		}
-
-		if opt.ErrorFunc == nil {
-			opt.ErrorFunc = func(w http.ResponseWriter) {
-				http.Error(w, "Bad Request: invalid CSRF token", http.StatusBadRequest)
-			}
-		}
-		return opt
+	if opt.Secret == "" {
+		opt.Secret = string(randomBytes(10))
 	}
 
-	opt = parseOptions(opt)
+	if opt.Header == "" {
+		opt.Header = defaultHeader
+	}
+
+	if opt.Form == "" {
+		opt.Form = defaultForm
+	}
+
+	if opt.SessionKey == "" {
+		opt.SessionKey = defaultSessionKey
+	}
+
+	if opt.ErrorFunc == nil {
+		opt.ErrorFunc = func(w http.ResponseWriter) {
+			http.Error(w, "Bad Request: invalid CSRF token", http.StatusBadRequest)
+		}
+	}
+
 	return csrfInvoker(func(c flamego.Context, s session.Session) {
 		x := &csrf{
 			secret:    opt.Secret,
