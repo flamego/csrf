@@ -3,7 +3,7 @@ module github.com/flamego/csrf
 go 1.18
 
 require (
-	github.com/flamego/flamego v1.9.5
+	github.com/flamego/flamego v1.9.6
 	github.com/flamego/session v1.6.3
 	github.com/stretchr/testify v1.10.0
 )
