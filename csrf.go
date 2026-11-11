@@ -139,7 +139,7 @@ var _ inject.FastInvoker = (*csrfInvoker)(nil)
 // csrfInvoker is an inject.FastInvoker implementation of `func(flamego.Context, session.Session)`.
 type csrfInvoker func(flamego.Context, session.Session)
 
-func (invoke csrfInvoker) Invoke(args []interface{}) ([]reflect.Value, error) {
+func (invoke csrfInvoker) Invoke(args []any) ([]reflect.Value, error) {
 	invoke(args[0].(flamego.Context), args[1].(session.Session))
 	return nil, nil
 }
